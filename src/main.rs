@@ -108,8 +108,7 @@ async fn main() -> io::Result<()> {
                 WindowChange::Focus => {
                     debug!("Focus: {:?}", &window_event);
                     if config.autotransparency {
-                        autotransparency(&window_event.container,
-                            config.transparency).await;
+                        autotransparency(config.transparency).await;
                     }
                 },
                 _ => debug!("Unknown {:?}", &window_event),
@@ -151,7 +150,7 @@ async fn autonaming(config: &Config){
         let new_name: String = parts.into();
         let command = format!(r#"rename workspace "{}" to "{}""#, 
             workspace.get_name(), new_name);
-        Runner::execute(&command).await;
+        Runner::execute(Box::new([&command])).await;
     }
 }
 
@@ -165,28 +164,31 @@ async fn undo_autonaming(){
         let command = format!(r#"rename workspace "{}" to "{}""#,
             &workspace_name,
             new_name);
-        Runner::execute(&command).await;
+        Runner::execute(Box::new([&command])).await;
     }
 }
 
-async fn autotransparency(node: &Node, transparency: f32) {
+async fn autotransparency(transparency: f32) {
     debug!("autotransparency");
     let command = format!(r#"[con_mark="current"] opacity {}"#, transparency);
-    Runner::execute(&command).await;
-    Runner::execute(r#"[con_mark="current"] mark transparency"#).await;
-    Runner::execute(r#"[con_mark="current"] unmark current"#).await;
-    if let Some(workspace) = Root::default().await.get_workspace(node) {
-        if let Some(_focused) = workspace.get_focused() {
-            Runner::execute(r#"opacity 1"#).await;
-            Runner::execute(r#"mark current"#).await;
-        }
-    }
+    let commands = Box::new([
+        &command,
+        r#"[con_mark="current"] mark transparency"#,
+        r#"[con_mark="current"] unmark current"#,
+        r#"opacity 1"#,
+        r#"mark current"#,
+
+    ]);
+    Runner::execute(commands).await;
 }
 
 async fn undo_autotransparency(){
     debug!("undo_autotransparency");
-    Runner::execute(r#"[con_mark="transparency"] opacity 1"#).await;
-    Runner::execute(r#"[con_mark="current"] unmark transparency"#).await;
+    let commands = Box::new([
+        r#"[con_mark="transparency"] opacity 1"#,
+        r#"[con_mark="current"] unmark transparency"#,
+    ]);
+    Runner::execute(commands);
 }
 
 async fn autotiling(node: &Node){
@@ -195,9 +197,9 @@ async fn autotiling(node: &Node){
         if let Some(focused) = workspace.get_focused() {
             debug!("Focused: {:?}", focused);
             if focused.rect.height > focused.rect.width{
-                Runner::execute("splitv").await;
+                Runner::execute(Box::new(["splitv"])).await;
             }else{
-                Runner::execute("splith").await;
+                Runner::execute(Box::new(["splith"])).await;
             }
         }
     }
