@@ -150,7 +150,7 @@ async fn autonaming(config: &Config){
         let new_name: String = parts.into();
         let command = format!(r#"rename workspace "{}" to "{}""#, 
             workspace.get_name(), new_name);
-        Runner::execute(Box::new([&command])).await;
+        Runner::execute_one(command).await;
     }
 }
 
@@ -164,31 +164,31 @@ async fn undo_autonaming(){
         let command = format!(r#"rename workspace "{}" to "{}""#,
             &workspace_name,
             new_name);
-        Runner::execute(Box::new([&command])).await;
+        Runner::execute_one(command).await;
     }
 }
 
 async fn autotransparency(transparency: f32) {
     debug!("autotransparency");
     let command = format!(r#"[con_mark="current"] opacity {}"#, transparency);
-    let commands = Box::new([
+    let commands = vec![
         &command,
         r#"[con_mark="current"] mark transparency"#,
         r#"[con_mark="current"] unmark current"#,
         r#"opacity 1"#,
         r#"mark current"#,
 
-    ]);
+    ];
     Runner::execute(commands).await;
 }
 
 async fn undo_autotransparency(){
     debug!("undo_autotransparency");
-    let commands = Box::new([
+    let commands = vec![
         r#"[con_mark="transparency"] opacity 1"#,
         r#"[con_mark="current"] unmark transparency"#,
-    ]);
-    Runner::execute(commands);
+    ];
+    Runner::execute(commands).await;
 }
 
 async fn autotiling(node: &Node){
@@ -197,9 +197,9 @@ async fn autotiling(node: &Node){
         if let Some(focused) = workspace.get_focused() {
             debug!("Focused: {:?}", focused);
             if focused.rect.height > focused.rect.width{
-                Runner::execute(Box::new(["splitv"])).await;
+                Runner::execute_one("splitv".to_string()).await;
             }else{
-                Runner::execute(Box::new(["splith"])).await;
+                Runner::execute_one("splith".to_string()).await;
             }
         }
     }
