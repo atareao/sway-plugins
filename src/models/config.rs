@@ -13,11 +13,13 @@ pub struct Config{
     pub duplicates: bool,
     pub autotiling: bool,
     pub autonaming: bool,
+    pub autotransparency: bool,
+    pub transparency: f32,
 }
 
 impl Config{
-    pub async fn read_configuration() -> Config{
-        let content = match read_to_string("config.yml")
+    pub async fn read_configuration(config_file: &str) -> Config{
+        let content = match read_to_string(config_file)
             .await {
                 Ok(value) => value,
                 Err(e) => {

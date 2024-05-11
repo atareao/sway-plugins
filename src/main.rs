@@ -1,6 +1,7 @@
 mod models;
 
 use std::{io, env, str::FromStr, process};
+use clap::{Arg, ArgAction, Command};
 use single_instance::SingleInstance;
 use tokio_stream::StreamExt;
 
@@ -47,9 +48,26 @@ async fn main() -> io::Result<()> {
         error!("Another instance is running");
         process::exit(1);
     }
-    
 
-    let config = Config::read_configuration().await;
+    let cmd = Command::new("i3helper")
+        .author("Lorenzo Carbonell <a.k.a. atareao>")
+        .version("1.0.0")
+        .about("i3helper")
+        .arg(
+            Arg::new("config")
+                .short('c')
+                .long("config")
+                .action(ArgAction::Set)
+                .value_name("FILE")
+        )
+        .get_matches();
+    debug!("{:?}", cmd);
+    let config_file = if let Some(config_file) = cmd.get_one::<String>("config"){
+        config_file
+    }else{
+        "config.yml"
+    };
+    let config = Config::read_configuration(config_file).await;
 
 
     
@@ -59,27 +77,27 @@ async fn main() -> io::Result<()> {
             select! {
                 _ = sigterm.recv() => {
                     debug!("Recieve SIGTERM");
-                    undow_window_renaming().await;
+                    undo().await;
                     process::exit(0);
                 },
                 _ = sigint.recv() => {
                     debug!("Recieve SIGINT");
-                    undow_window_renaming().await;
+                    undo().await;
                     process::exit(0);
                 },
             };
     });
-    rename_workspace(&config).await;
+    autonaming(&config).await;
 
     let mut i3 = I3::connect().await?;
     let _ = i3.subscribe([Subscribe::Window]).await;
     let mut listener = i3.listen();
     while let Some(event) = listener.next().await {
-        if let Ok(Event::Window(mut window_event)) = event{
+        if let Ok(Event::Window(window_event)) = event{
             match window_event.change {
                 WindowChange::New | WindowChange::Close | WindowChange::Move => {
                     debug!(" New Event {:?}", &window_event);
-                    rename_workspace(&config).await;
+                    autonaming(&config).await;
                     if window_event.change == WindowChange::New{
                         debug!(" New Event {:?}", &window_event);
                         if config.autotiling {
@@ -89,7 +107,10 @@ async fn main() -> io::Result<()> {
                 },
                 WindowChange::Focus => {
                     debug!("Focus: {:?}", &window_event);
-                    window_event.container.percent = Some(0.1);
+                    if config.autotransparency {
+                        autotransparency(&window_event.container,
+                            config.transparency).await;
+                    }
                 },
                 _ => debug!("Unknown {:?}", &window_event),
             }
@@ -97,13 +118,15 @@ async fn main() -> io::Result<()> {
             error!("Nada");
         }
     }
-    undow_window_renaming().await;
-    debug!("Como?");
     Ok(())
 }
 
+async fn undo(){
+    undo_autonaming().await;
+    undo_autotransparency().await;
+}
 
-async fn rename_workspace(config: &Config){
+async fn autonaming(config: &Config){
     if ! config.autonaming {
         return;
     }
@@ -132,7 +155,7 @@ async fn rename_workspace(config: &Config){
     }
 }
 
-async fn undow_window_renaming(){
+async fn undo_autonaming(){
     let workspaces = Root::default().await.get_workspaces();
     for workspace in workspaces{
         let workspace_name = workspace.get_name();
@@ -146,10 +169,31 @@ async fn undow_window_renaming(){
     }
 }
 
+async fn autotransparency(node: &Node, transparency: f32) {
+    debug!("autotransparency");
+    let command = format!(r#"[con_mark="current"] opacity {}"#, transparency);
+    Runner::execute(&command).await;
+    Runner::execute(r#"[con_mark="current"] mark transparency"#).await;
+    Runner::execute(r#"[con_mark="current"] unmark current"#).await;
+    if let Some(workspace) = Root::default().await.get_workspace(node) {
+        if let Some(_focused) = workspace.get_focused() {
+            Runner::execute(r#"opacity 1"#).await;
+            Runner::execute(r#"mark current"#).await;
+        }
+    }
+}
+
+async fn undo_autotransparency(){
+    debug!("undo_autotransparency");
+    Runner::execute(r#"[con_mark="transparency"] opacity 1"#).await;
+    Runner::execute(r#"[con_mark="current"] unmark transparency"#).await;
+}
+
 async fn autotiling(node: &Node){
     debug!("autotiling");
     if let Some(workspace) = Root::default().await.get_workspace(node) {
         if let Some(focused) = workspace.get_focused() {
+            debug!("Focused: {:?}", focused);
             if focused.rect.height > focused.rect.width{
                 Runner::execute("splitv").await;
             }else{

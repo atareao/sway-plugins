@@ -24,13 +24,9 @@ impl Root {
     }
 
     pub fn get_workspace(&self, node: &Node) -> Option<Workspace> {
-        for workspace in self.get_workspaces() {
-            if workspace.has_node(node) {
-                return Some(workspace);
-            }
-        }
-        None
-
+        self.get_workspaces()
+            .into_iter()
+            .find(|workspace| workspace.has_node(node))
     }
 }
 
@@ -40,7 +36,7 @@ fn get_workspaces(node: &Node) -> Vec<Workspace> {
         if child.node_type == NodeType::Workspace && child.num.is_some(){
             workspaces.push(Workspace::new(child.clone()));
         }else{
-            let some_workspaces = get_workspaces(&child);
+            let some_workspaces = get_workspaces(child);
             workspaces.extend(some_workspaces);
         }
     }
