@@ -1,0 +1,11 @@
+autonaming: true
+autotiling: true
+icons:
+  firefox: ""
+  org.telegram.desktop: ""
+  kitty: "🐱"
+  default: "⚙️"
+  wezterm: "💻"
+  org.wezfurlong.wezterm: "💻"
+  Gimp-2.10: "🖌️"
+duplicates: false
