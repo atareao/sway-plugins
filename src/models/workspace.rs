@@ -1,4 +1,4 @@
-use tokio_i3ipc::reply::{
+use swayipc_async::{
     Node,
     NodeType,
 };
@@ -23,7 +23,7 @@ impl Workspace {
         self.node.clone().num.unwrap_or(0)
     }
 
-    pub fn get_id(&self) -> usize {
+    pub fn get_id(&self) -> i64 {
         self.node.clone().id
     }
 
@@ -53,7 +53,7 @@ pub fn get_focused(node: Node) -> Option<Node> {
     }
 }
 
-fn has_node(node: &Node, id: usize) -> bool{
+fn has_node(node: &Node, id: i64) -> bool{
     if node.id == id {
         true
     }else{

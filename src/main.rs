@@ -1,7 +1,7 @@
 mod models;
 mod plugins;
 
-use std::{io, env, str::FromStr, process};
+use std::{env, str::FromStr, process};
 use clap::{Arg, ArgAction, Command};
 use single_instance::SingleInstance;
 use tokio_stream::StreamExt;
@@ -13,10 +13,7 @@ use tokio::{
         SignalKind,
     },
 };
-use tokio_i3ipc::{
-    event::Subscribe,
-    I3,
-};
+use swayipc_async::{Connection, EventType, Fallible};
 use tracing::{debug, error, info};
 use tracing_subscriber::{
     EnvFilter,
@@ -35,7 +32,7 @@ const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Fallible<()> {
     info!("main");
     let log_level = env::var("RUST_LOG").unwrap_or("DEBUG".to_string());
     debug!("log_level: {}", log_level);
@@ -98,10 +95,9 @@ async fn main() -> io::Result<()> {
         plugin.start().await;
     }
 
-    let mut i3 = I3::connect().await?;
-    let _ = i3.subscribe([Subscribe::Window]).await;
-    let mut listener = i3.listen();
-    while let Some(result_event) = listener.next().await {
+    let mut events = Connection::new().await?.subscribe([EventType::Window]).await?;
+
+    while let Some(result_event) = events.next().await {
         if let Ok(event) = result_event { 
             // Process
             for plugin in plugins.iter() {

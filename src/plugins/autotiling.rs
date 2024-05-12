@@ -1,5 +1,5 @@
 use tracing::debug;
-use tokio_i3ipc::event::{
+use swayipc_async::{
     Event,
     WindowChange,
 };
@@ -33,7 +33,7 @@ impl PluginTrait for Autotiling {
         debug!("start");
     }
 
-    async fn process(&self, event: &tokio_i3ipc::event::Event) {
+    async fn process(&self, event: &Event) {
         debug!("process: {:?}", event);
         if self.enable {
             if let Event::Window(window_event) = event{

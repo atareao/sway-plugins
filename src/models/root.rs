@@ -1,4 +1,4 @@
-use tokio_i3ipc::{reply::{Node, NodeType}, I3};
+use swayipc_async::{Node, Connection, NodeType};
 
 use super::Workspace;
 
@@ -9,7 +9,7 @@ pub struct Root{
 
 impl Root {
     pub async fn default() -> Root {
-        let node = I3::connect()
+        let node = Connection::new()
             .await
             .unwrap()
             .get_tree()

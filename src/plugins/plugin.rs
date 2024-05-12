@@ -1,5 +1,5 @@
 use tracing::debug;
-use tokio_i3ipc::event::Event;
+use swayipc_async::Event;
 
 use super::{Autonaming, Autotiling, Autotransparency};
 use super::super::models::Config;
@@ -40,7 +40,7 @@ impl PluginTrait for Plugin {
         }
     }
 
-    async fn process(&self, event: &tokio_i3ipc::event::Event) {
+    async fn process(&self, event: &Event) {
         match self{
             Plugin::Autonaming(plugin) => plugin.process(event).await,
             Plugin::Autotiling(plugin) => plugin.process(event).await,
