@@ -216,23 +216,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
-name = "i3helper"
-version = "0.1.0"
-dependencies = [
- "async-recursion",
- "clap",
- "regex",
- "serde",
- "serde_yaml",
- "single-instance",
- "tokio",
- "tokio-i3ipc",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "i3ipc-types"
 version = "0.16.0"
 source = "git+https://github.com/leshow/tokio-i3ipc.git#3c3ca27952cbfc43cdb2d09fe8ebe13bcd55f64d"
@@ -637,6 +620,23 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "swayplugins"
+version = "0.1.0"
+dependencies = [
+ "async-recursion",
+ "clap",
+ "regex",
+ "serde",
+ "serde_yaml",
+ "single-instance",
+ "tokio",
+ "tokio-i3ipc",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "syn"

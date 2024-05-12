@@ -1,20 +1,18 @@
-use std::collections::HashMap;
 use tokio::fs::read_to_string;
 use std::process;
-use serde::{
-    Serialize,
-    Deserialize,
+use serde::Deserialize;
+use super::super::plugins::{
+    Autonaming,
+    Autotiling,
+    Autotransparency,
 };
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config{
-    pub icons: HashMap<String, String>,
-    pub duplicates: bool,
-    pub autotiling: bool,
-    pub autonaming: bool,
-    pub autotransparency: bool,
-    pub transparency: f32,
+    pub autonaming: Autonaming,
+    pub autotiling: Autotiling,
+    pub autotransparency: Autotransparency,
 }
 
 impl Config{
@@ -35,5 +33,4 @@ impl Config{
             }
         }
     }
-
 }

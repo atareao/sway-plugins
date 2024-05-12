@@ -1,4 +1,5 @@
 mod models;
+mod plugins;
 
 use std::{io, env, str::FromStr, process};
 use clap::{Arg, ArgAction, Command};
@@ -13,13 +14,8 @@ use tokio::{
     },
 };
 use tokio_i3ipc::{
-    event::{
-        Event,
-        WindowChange,
-        Subscribe
-    },
+    event::Subscribe,
     I3,
-    reply::Node,
 };
 use tracing::{debug, error, info};
 use tracing_subscriber::{
@@ -27,10 +23,16 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
 };
-use models::{
-    Parts,
-    Config, Root, Runner,
+use models::Config;
+use plugins::{
+    Plugin,
+    PluginTrait,
 };
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const NAME: &str = env!("CARGO_PKG_NAME");
+const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
@@ -49,10 +51,10 @@ async fn main() -> io::Result<()> {
         process::exit(1);
     }
 
-    let cmd = Command::new("i3helper")
-        .author("Lorenzo Carbonell <a.k.a. atareao>")
-        .version("1.0.0")
-        .about("i3helper")
+    let cmd = Command::new(NAME)
+        .author(AUTHORS)
+        .version(VERSION)
+        .about(DESCRIPTION)
         .arg(
             Arg::new("config")
                 .short('c')
@@ -62,145 +64,58 @@ async fn main() -> io::Result<()> {
         )
         .get_matches();
     debug!("{:?}", cmd);
+
     let config_file = if let Some(config_file) = cmd.get_one::<String>("config"){
         config_file
     }else{
         "config.yml"
     };
     let config = Config::read_configuration(config_file).await;
+    let config2 = config.clone();
 
-
-    
     tokio::spawn(async move {
         let mut sigterm = signal(SignalKind::terminate()).unwrap();
         let mut sigint = signal(SignalKind::interrupt()).unwrap();
             select! {
                 _ = sigterm.recv() => {
                     debug!("Recieve SIGTERM");
-                    undo().await;
+                    end(&config2).await;
                     process::exit(0);
                 },
                 _ = sigint.recv() => {
                     debug!("Recieve SIGINT");
-                    undo().await;
+                    end(&config2).await;
                     process::exit(0);
                 },
             };
     });
-    autonaming(&config).await;
+
+
+    let plugins = Plugin::get_plugins(&config);
+
+    // Start
+    for plugin in plugins.iter() {
+        plugin.start().await;
+    }
 
     let mut i3 = I3::connect().await?;
     let _ = i3.subscribe([Subscribe::Window]).await;
     let mut listener = i3.listen();
-    while let Some(event) = listener.next().await {
-        if let Ok(Event::Window(window_event)) = event{
-            match window_event.change {
-                WindowChange::New | WindowChange::Close | WindowChange::Move => {
-                    debug!(" New Event {:?}", &window_event);
-                    autonaming(&config).await;
-                    if window_event.change == WindowChange::New{
-                        debug!(" New Event {:?}", &window_event);
-                        if config.autotiling {
-                            autotiling(&window_event.container).await;
-                        }
-                    }
-                },
-                WindowChange::Focus => {
-                    debug!("Focus: {:?}", &window_event);
-                    if config.autotransparency {
-                        autotransparency(config.transparency).await;
-                    }
-                },
-                _ => debug!("Unknown {:?}", &window_event),
+    while let Some(result_event) = listener.next().await {
+        if let Ok(event) = result_event { 
+            // Process
+            for plugin in plugins.iter() {
+                plugin.process(&event).await;
             }
-        }else{
-            error!("Nada");
         }
     }
     Ok(())
 }
 
-async fn undo(){
-    undo_autonaming().await;
-    undo_autotransparency().await;
-}
+async fn end(config: &Config){
+    debug!("end: {:?}", config);
 
-async fn autonaming(config: &Config){
-    if ! config.autonaming {
-        return;
-    }
-    let icons = &config.icons;
-    let default = &config.icons.get("default").expect("Default icon not defined").to_string();
-    let duplicates = config.duplicates;
-    let workspaces = Root::default().await.get_workspaces();
-    for workspace in workspaces{
-        let name = workspace.get_name();
-        let mut parts: Parts = name.into();
-        let mut new_icons = Vec::new();
-        debug!("Workspace: {}. Num: {}", workspace.get_id(), workspace.get_num());
-        let names = workspace.get_apps();
-        for name in names{
-            let icon = icons.get(&name).unwrap_or(default);
-            debug!("name: {} => icon: {}", name, icon);
-            if duplicates || !new_icons.contains(icon){
-                new_icons.push(icon.to_string());
-            }
-        }
-        parts.icons = Some(new_icons.join(" "));
-        let new_name: String = parts.into();
-        let command = format!(r#"rename workspace "{}" to "{}""#, 
-            workspace.get_name(), new_name);
-        Runner::execute_one(command).await;
-    }
-}
-
-async fn undo_autonaming(){
-    let workspaces = Root::default().await.get_workspaces();
-    for workspace in workspaces{
-        let workspace_name = workspace.get_name();
-        let mut parts: Parts = workspace_name.clone().into();
-        parts.icons = None;
-        let new_name: String = parts.into();
-        let command = format!(r#"rename workspace "{}" to "{}""#,
-            &workspace_name,
-            new_name);
-        Runner::execute_one(command).await;
-    }
-}
-
-async fn autotransparency(transparency: f32) {
-    debug!("autotransparency");
-    let command = format!(r#"[con_mark="current"] opacity {}"#, transparency);
-    let commands = vec![
-        &command,
-        r#"[con_mark="current"] mark transparency"#,
-        r#"[con_mark="current"] unmark current"#,
-        r#"opacity 1"#,
-        r#"mark current"#,
-
-    ];
-    Runner::execute(commands).await;
-}
-
-async fn undo_autotransparency(){
-    debug!("undo_autotransparency");
-    let commands = vec![
-        r#"[con_mark="transparency"] opacity 1"#,
-        r#"[con_mark="current"] unmark transparency"#,
-    ];
-    Runner::execute(commands).await;
-}
-
-async fn autotiling(node: &Node){
-    debug!("autotiling");
-    if let Some(workspace) = Root::default().await.get_workspace(node) {
-        if let Some(focused) = workspace.get_focused() {
-            debug!("Focused: {:?}", focused);
-            if focused.rect.height > focused.rect.width{
-                Runner::execute_one("splitv".to_string()).await;
-            }else{
-                Runner::execute_one("splith".to_string()).await;
-            }
-        }
+    for plugin in Plugin::get_plugins(config).iter() {
+        plugin.end().await;
     }
 }
