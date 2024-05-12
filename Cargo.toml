@@ -7,7 +7,6 @@ description = "Some plugins for Sway"
 readme = "README.md"
 homepage = "https://github.com/atareao/swayplugins"
 repository = "https://github.com/atareao/swayplugins"
-licence = "MIT"
 keywords = ["sway", "plugin", "transparency", "autonaming", "autotiling"]
 categories = ["command-line-utilities"]
 
