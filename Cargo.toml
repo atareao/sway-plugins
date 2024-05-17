@@ -1,6 +1,6 @@
 [package]
 name = "sway-plugins"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Lorenzo Carbonell <a.k.a. atareao>"]
 description = "Some plugins for Sway"
