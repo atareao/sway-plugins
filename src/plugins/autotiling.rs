@@ -38,6 +38,7 @@ impl PluginTrait for Autotiling {
         if self.enable {
             if let Event::Window(window_event) = event{
                 if window_event.change == WindowChange::New || 
+                        window_event.change == WindowChange::Focus || 
                         window_event.change == WindowChange::Close || 
                         window_event.change == WindowChange::Move {
                     if let Some(workspace) = Root::default().await.get_workspace(&window_event.container) {
